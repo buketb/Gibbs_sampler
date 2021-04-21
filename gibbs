@@ -1,0 +1,73 @@
+clc
+clear all
+
+% Set simulation parameters:
+S0 = 1000;           % Burn-in replications
+S1 = 10000;          % MC included replications
+
+% Load data set:
+load HPRICE.txt;
+N = size(HPRICE,1);  % Sample size
+y = HPRICE(:,1);     % Dependent variable
+X = HPRICE(:,2:5);   % Independent variables
+X = [ones(N,1) X];   % Add intercept
+k = size(X,2);       % Number of regressors
+
+% OLS estimates:
+XX = X'*X;                % Compute X'X
+Xy = X'*y;                % Compute X'y
+beta_OLS = XX\Xy;           % OLS estimates
+ssq_OLS = ((y-X*beta_OLS)'*(y-X*beta_OLS))/(N-k);            % Variance of error term
+V_OLS = inv(XX)*ssq_OLS;              % Variance/covariance matrix of OLS estimates
+
+% Compute informative prior:
+beta0  = [0, 10, 5000, 10000, 10000]';              % Prior mean of beta
+V0     = diag([10000^2 5^2 2500^2 5000^2 5000^2]);  % Prior variance of beta 
+kappa0 = inv(V0);                                   % Inverse of prior variance of beta 
+ssq0   = 5000^2;                                    % Inverse of prior mean of h
+nu0    = 5;                                         % Prior d.o.f. of h
+
+% Initialize matrices to store posterior draws:
+beta = zeros(S0+S1,k);   % matrix of beta posterior draws
+h    = zeros(S0+S1,1);   % vector of h posterior draws
+
+% Initial draw beta(0) using OLS estimates:
+beta_init = mvnrnd(beta_OLS,V_OLS,1); % random draw multivariant normal dist. as meaan beta_OLS, number of random draws =1
+
+% First draw h(1)|beta_init:
+nu1  = N +nu0;                    % Posterior degrees of freedom of h|beta
+ssq1 = ((y-X*beta_init')'*(y-X*beta_init') + nu0*ssq0)/nu1;                    % Posterior inverse of the mean
+h(1) = gamrnd(nu1/2,2/(nu1*ssq1)));        % Draw from the cond. gamma for h
+
+% First draw beta(1)|h(1):
+V1        = inv(kappa0 + h(1)*XX);                 % Posterior covariance of beta|h
+V1        = (V1+ V1')/2;                 % Enforce symmetry of V1
+beta1     = V1 * (kappa0*beta0 + h(1)*Xy);                   % Posterior mean of beta|h
+beta(1,:) = mvnrnd(beta1,V1,1); % Draw from the cond. mult. normal for beta
+
+% Start the Gibbs sampler:
+for i=2:S0+S1    
+
+    % Draw h(i)|beta(i-1):
+    ssq1 = ((y-X*beta(i-1,:)')'*(y-X*beta(i-1,:)') + nu0*ssq0)/nu1;
+    h(i) = gamrnd(nu1/2,2/(nu1*ssq1));   
+
+    % Draw beta(i)|h(i)
+    V1        = inv(kappa0 + h(i)*XX);
+    V1        = (V1+ V1')/2;
+    beta1     = V1 * (kappa0*beta0 + h(i)*Xy); 
+    beta(i,:) = mvnrnd(beta1,V1,1); 
+    
+end
+
+% Discard burn-in replications S0:
+beta = beta(beta(S0+1:end,:);
+h    = h(S0+1:end,:);
+
+% Compute posterior point estimates using the MC included replications S1:
+beta_mean = mean(beta);                    % Posterior mean of beta
+beta_std  = std(beta);                    % Posterior std. deviation of beta
+beta_prc  = prctile(beta,[2.5 97.5]);     % Posterior 2.5/97.5 percentiles of beta
+h_mean    = mean(h);                    % Posterior mean of h
+h_std     = std(h);                    % Posterior std. deviation of h
+h_prc     = prctile(h,[2.5 97.5])';    % Posterior 2.5/97.5 percentiles of h
