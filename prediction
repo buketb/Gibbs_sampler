@@ -1,0 +1,23 @@
+% Prediction
+
+X_star = [1 5000 2 2 1];              % Information on X^* to predict y^*
+
+% Monte Carlo integration to predict y^*:
+y_star = zeros(S1,1);                % Initialize vector to save predictions 
+for i=1:S1
+    y_star(i) = normrnd(X_star*beta(i,:)', 1/sqrt(h(i))); % Draw from the predictive density
+end %it is no more multivariate normal dist. becuase y_star is not a random variable
+
+% Point estimates:
+y_star_mean = mean(y_star);                 % Mean of predictive density
+y_star_sd   = std(y_star);                  % Standard deviation of predictive density
+y_star_prc  = prctile(y_star,[2.5 97.5]);   % Posterior 2.5/97.5 percentiles of beta
+
+% Histogram of the predictive density:
+figure
+histfit(y_star,100)
+hold on
+line([y_star_mean, y_star_mean], ylim, 'LineWidth', 2, 'Color', 'r');  % Add predictive mean
+line([y_star_prc(1), y_star_prc(1)], ylim, 'LineWidth', 0.5, 'Color', 'r');  % Add predictive 2.5 percentile
+line([y_star_prc(2), y_star_prc(2)], ylim, 'LineWidth', 0.5, 'Color', 'r');  % Add predictive 97.5 percentile
+title('Predictive density for y^{*} and estimated normal pdf')
