@@ -1,0 +1,8 @@
+% Numerical standard errors (NSE) based on Newey-West lonrun variances
+
+% NSE with Newey-West:
+beta_nse = zeros(1,k);         % Initialize vector to save NSE for beta 
+for j = 1:k
+    beta_nse(j) = sqrt(NeweyWest(beta(:,j),10))/sqrt(S1); 
+end
+h_nse = sqrt(NeweyWest(h,10))/sqrt(S1);
